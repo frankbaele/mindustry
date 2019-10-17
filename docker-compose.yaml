@@ -1,0 +1,7 @@
+version: '3.7'
+services:
+  mindustry:
+    build: .
+    ports:
+      - 6859:6859
+    restart: always
