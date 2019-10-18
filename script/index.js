@@ -43,8 +43,8 @@ async function createRelease(version) {
     repo: "mindustry"
   });
 
-  if (mindustry_release.data.tag_name !== mindustry_release.data.docker_release) {
-    const newVersion = "mindustry_release.data.tag_name";
+  if (mindustry_release.data.tag_name !== docker_release.data.tag_name) {
+    const newVersion = mindustry_release.data.tag_name;
     await updateDockerFile(newVersion);
     await createCommit(newVersion);
     await createRelease(newVersion);
