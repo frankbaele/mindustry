@@ -1,7 +1,6 @@
 const Octokit = require("@octokit/rest");
 const octokit = new Octokit({
-  username: "frankbaele",
-  password: process.env.PASSWORD
+  auth: process.env.ACCESS_TOKEN
 });
 
 const simpleGit = require('simple-git')('../');
@@ -20,24 +19,17 @@ async function createCommit(version) {
   return simpleGit
   .add('./Dockerfile')
   .commit("Update to new version: " + version)
-  .tag(version)
+  .addTag(version, (err,result)=>{})
   .push()
   .pushTags()
 }
 
-async function setTag(version) {
-  // octokit.git.createTag({
-  //   "frankbaele",
-  //   "mindustry",
-  //    version,
-  //   "Release version: " + version,
-  //   object,
-  //   "commit"
-  // })
-}
-
-async function creatRelease(version) {
-
+async function createRelease(version) {
+   return octokit.repos.createRelease({
+    owner:"frankbaele",
+    repo: "mindustry",
+    tag_name: version
+  })
 }
 
 (async () => {
@@ -52,11 +44,9 @@ async function creatRelease(version) {
   });
 
   if (mindustry_release.data.tag_name !== mindustry_release.data.docker_release) {
-
+    const newVersion = "mindustry_release.data.tag_name";
+    await updateDockerFile(newVersion);
+    await createCommit(newVersion);
+    await createRelease(newVersion);
   }
-  const newVersion = "v100"
-  await updateDockerFile(newVersion);
-  await setTag(newVersion);
-  await creatRelease(newVersion);
-  await createCommit(newVersion)
 })();
