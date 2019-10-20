@@ -2,51 +2,89 @@ const Octokit = require("@octokit/rest");
 const octokit = new Octokit({
   auth: process.env.ACCESS_TOKEN
 });
-
-const simpleGit = require('simple-git')('../');
 const fs = require('fs');
 const util = require('util');
 const readFile = util.promisify(fs.readFile);
-const writeFile = util.promisify(fs.writeFile);
+const scriptTimeout = 5000;
+const owner = "frankbaele";
+const repo = "mindustry";
 
 async function updateDockerFile(version) {
   const file = await readFile('./Dockerfile.template', 'utf8');
   const result = file.replace(/%%release%%/g, version);
-  await writeFile('../Dockerfile', result)
+  return Buffer.from(result).toString('base64')
 }
 
-async function createCommit(version) {
-  return simpleGit
-  .add('./Dockerfile')
-  .commit("Update to new version: " + version)
-  .addTag(version, (err,result)=>{})
-  .push()
-  .pushTags()
+async function pushDockerFile(version, content, sha) {
+  return octokit.repos.createOrUpdateFile({
+    owner,
+    repo,
+    path:'Dockerfile',
+    message: "Update to new version: " + version,
+    content,
+    sha
+  })
 }
 
+async function tagCommit(commit, version){
+  const tag = await octokit.git.createTag({
+    owner,
+    repo,
+    tag: version,
+    message: "Release tag: " + version,
+    object: commit.sha,
+    type: "commit"
+  })
+  return octokit.git.createRef({
+    owner,
+    repo,
+    ref: "refs/tags/" + version,
+    sha: tag.data.sha
+  })
+}
+
+async function getCurrentFile(){
+  return octokit.repos.getContents({
+    owner,
+    repo,
+    path: "Dockerfile"
+  })
+
+}
 async function createRelease(version) {
   return octokit.repos.createRelease({
-    owner:"frankbaele",
-    repo: "mindustry",
+    owner,
+    repo,
     tag_name: version
   })
 }
 
-(async () => {
-  const mindustry_release = await octokit.repos.getLatestRelease({
-    owner: "Anuken",
-    repo: "Mindustry"
-  });
+async function checkVersion() {
+  try{
+    const mindustry_release = await octokit.repos.getLatestRelease({
+      owner: "Anuken",
+      repo: "Mindustry"
+    });
 
-  const docker_release = await octokit.repos.getLatestRelease({
-    owner: "frankbaele",
-    repo: "mindustry"
-  });
+    const docker_release = await octokit.repos.getLatestRelease({
+      owner,
+      repo,
+    });
 
-  if (mindustry_release.data.tag_name !== docker_release.data.tag_name) {
-    const newVersion = mindustry_release.data.tag_name;
-    await updateDockerFile(newVersion);
-    await createCommit(newVersion);
-    await createRelease(newVersion);
+    if (mindustry_release.data.tag_name !== docker_release.data.tag_name) {
+      const newVersion = mindustry_release.data.tag_name;
+      const fileBase64 = await updateDockerFile(newVersion);
+      const currentFile = await getCurrentFile();
+      const result = await pushDockerFile(newVersion, fileBase64, currentFile.data.sha);
+      await tagCommit(result.data.commit, newVersion);
+      await createRelease(newVersion);
+    } else {
+      console.log("Versions match, nothing to do")
+    }
+  } catch (error){
+    console.error(error)
   }
-})();
+  setTimeout(checkVersion, scriptTimeout)
+}
+
+checkVersion();
