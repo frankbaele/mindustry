@@ -65,11 +65,13 @@ async function checkVersion() {
       owner: "Anuken",
       repo: "Mindustry"
     });
+    console.log("Mindustry latest release: " + mindustry_release.data.tag_name);
 
     const docker_release = await octokit.repos.getLatestRelease({
       owner,
       repo,
     });
+    console.log("Dockerhub latest release: " + docker_release.data.tag_name);
 
     if (mindustry_release.data.tag_name !== docker_release.data.tag_name) {
       const newVersion = mindustry_release.data.tag_name;
@@ -78,6 +80,7 @@ async function checkVersion() {
       const result = await pushDockerFile(newVersion, fileBase64, currentFile.data.sha);
       await tagCommit(result.data.commit, newVersion);
       await createRelease(newVersion);
+      console.log("Versions update was successful")
     } else {
       console.log("Versions match, nothing to do")
     }
