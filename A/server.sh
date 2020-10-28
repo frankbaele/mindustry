@@ -1,1 +1,0 @@
-bash run_server.sh
