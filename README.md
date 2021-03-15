@@ -29,7 +29,3 @@ services:
     volumes:
       - ./config:/config
 ```
-
-Roadmap
-- expose server configuration
-- add dev builds
